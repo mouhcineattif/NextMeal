@@ -98,19 +98,21 @@ export default function Home() {
     setError(null);
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey.trim(),
-          "anthropic-version": "2023-06-01",
+          Authorization: `Bearer ${apiKey.trim()}`,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "gpt-4o-mini",
           max_tokens: 1000,
           temperature: 0.8,
-          system: SYSTEM_PROMPT,
           messages: [
+            {
+              role: "system",
+              content: SYSTEM_PROMPT,
+            },
             {
               role: "user",
               content: buildUserPrompt(isSurprise),
@@ -121,18 +123,23 @@ export default function Home() {
 
       if (!response.ok) {
         const details = await response.text();
-        throw new Error(`Anthropic request failed (${response.status}): ${details}`);
+        throw new Error(`OpenAI request failed (${response.status}): ${details}`);
       }
 
       const data = await response.json();
-      const textBlock = data?.content?.find((item: { type: string }) => item.type === "text");
-      const rawText = textBlock?.text;
+      const rawText = data?.choices?.[0]?.message?.content;
 
       if (!rawText || typeof rawText !== "string") {
-        throw new Error("No text content returned by Anthropic.");
+        throw new Error("No text content returned by OpenAI.");
       }
 
-      const parsed = JSON.parse(rawText);
+      const cleanedText = rawText
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+
+      const parsed = JSON.parse(cleanedText);
       const safeMeal = coerceMeal(parsed);
 
       if (!safeMeal) {
@@ -169,9 +176,9 @@ export default function Home() {
           <CardContent>
             <form className="space-y-4" onSubmit={onSubmit}>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Anthropic API key</label>
+                <label className="text-sm font-medium">OpenAI API key</label>
                 <Input
-                  placeholder="sk-ant-..."
+                  placeholder="sk-..."
                   type="password"
                   value={apiKey}
                   onChange={(event) => setApiKey(event.target.value)}
@@ -246,7 +253,7 @@ export default function Home() {
             {loading && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Claude is crafting your lunchbox...
+                OpenAI is crafting your lunchbox...
               </div>
             )}
 

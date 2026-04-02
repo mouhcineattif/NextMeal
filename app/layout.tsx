@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LunchBox AI",
-  description: "Generate lunchbox-friendly meal ideas with Claude.",
+  description: "Generate lunchbox-friendly meal ideas with OpenAI.",
 };
 
 export default function RootLayout({
