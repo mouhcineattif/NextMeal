@@ -16,6 +16,7 @@ export default function Home() {
   const [dietaryPreference, setDietaryPreference] = useState("");
   const [prepTime, setPrepTime] = useState("");
   const [ingredientsOnHand, setIngredientsOnHand] = useState("");
+  const [language, setLanguage] = useState<"english" | "arabic" | "darija" | "french">("english");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [meal, setMeal] = useState<MealSuggestion | null>(null);
@@ -38,6 +39,7 @@ export default function Home() {
           dietaryPreference,
           prepTime,
           ingredientsOnHand,
+          language,
         }),
       });
 
@@ -105,9 +107,19 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
+                <label className="text-sm font-medium">Response language</label>
+                <Select value={language} onChange={(event) => setLanguage(event.target.value as typeof language)}>
+                  <option value="english">English</option>
+                  <option value="arabic">Arabic (فصحى)</option>
+                  <option value="darija">Darija (Moroccan Arabic)</option>
+                  <option value="french">French</option>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Ingredients you already have (optional)</label>
                 <Textarea
-                  placeholder="Rice, eggs, spinach, yogurt..."
+                  placeholder="Rice, eggs, spinach, yogurt... or Darija ingredient names"
                   value={ingredientsOnHand}
                   onChange={(event) => setIngredientsOnHand(event.target.value)}
                 />

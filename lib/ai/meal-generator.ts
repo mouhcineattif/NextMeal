@@ -19,6 +19,12 @@ Rules:
 - Never return markdown or extra text.`;
 
 const SURPRISE_PROMPT = "Surprise me with a balanced lunchbox meal I can prep for work.";
+const LANGUAGE_MAP = {
+  english: "English",
+  arabic: "Modern Standard Arabic (pure Arabic / فصحى)",
+  darija: "Moroccan Darija (Moroccan Arabic / الدارجة المغربية)",
+  french: "French",
+} as const;
 
 function coerceMeal(data: unknown): MealSuggestion | null {
   if (!data || typeof data !== "object") return null;
@@ -52,12 +58,20 @@ function buildUserPrompt(request: MealRequest): string {
     ? SURPRISE_PROMPT
     : request.prompt?.trim() || "Give me a practical lunchbox idea.";
 
+  const requestedLanguage = request.language && request.language in LANGUAGE_MAP
+    ? request.language
+    : "english";
+
   return [
     goal,
     request.dietaryPreference ? `Dietary preference: ${request.dietaryPreference}` : null,
     request.prepTime ? `Available prep time: ${request.prepTime}` : null,
     request.ingredientsOnHand?.trim()
       ? `Ingredients available: ${request.ingredientsOnHand.trim()}`
+      : null,
+    `Language for your full response (including meal name, steps, and tip): ${LANGUAGE_MAP[requestedLanguage]}.`,
+    requestedLanguage === "darija"
+      ? "If ingredients are written in Darija, understand them and keep the generated recipe in Moroccan Darija."
       : null,
   ]
     .filter(Boolean)
