@@ -17,5 +17,6 @@ export type MealRequest = {
   dietaryPreference?: string;
   prepTime?: string;
   ingredientsOnHand?: string;
+  language?: "english" | "arabic" | "darija" | "french";
   isSurprise?: boolean;
 };
