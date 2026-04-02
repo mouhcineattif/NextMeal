@@ -9,67 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-type Ingredient = {
-  name: string;
-  quantity: string;
-};
-
-type MealSuggestion = {
-  meal_name: string;
-  description: string;
-  prep_time: string;
-  ingredients: Ingredient[];
-  steps: string[];
-  lunchbox_tip: string;
-};
-
-const SYSTEM_PROMPT = `You are LunchBox AI, an assistant that creates practical, healthy, office-friendly meal ideas.
-Return ONLY valid JSON matching exactly this schema:
-{
-  "meal_name": "string",
-  "description": "string",
-  "prep_time": "string",
-  "ingredients": [{ "name": "string", "quantity": "string" }],
-  "steps": ["string"],
-  "lunchbox_tip": "string"
-}
-Rules:
-- Keep meals realistic and lunchbox-friendly.
-- Keep steps concise but actionable.
-- Include quantities for all ingredients.
-- Never return markdown or extra text.`;
-
-const SURPRISE_PROMPT = "Surprise me with a balanced lunchbox meal I can prep for work.";
-
-function coerceMeal(data: unknown): MealSuggestion | null {
-  if (!data || typeof data !== "object") return null;
-  const candidate = data as MealSuggestion;
-  if (
-    typeof candidate.meal_name !== "string" ||
-    typeof candidate.description !== "string" ||
-    typeof candidate.prep_time !== "string" ||
-    typeof candidate.lunchbox_tip !== "string" ||
-    !Array.isArray(candidate.ingredients) ||
-    !Array.isArray(candidate.steps)
-  ) {
-    return null;
-  }
-
-  return {
-    meal_name: candidate.meal_name,
-    description: candidate.description,
-    prep_time: candidate.prep_time,
-    lunchbox_tip: candidate.lunchbox_tip,
-    ingredients: candidate.ingredients
-      .filter((item) => typeof item?.name === "string" && typeof item?.quantity === "string")
-      .map((item) => ({ name: item.name, quantity: item.quantity })),
-    steps: candidate.steps.filter((step) => typeof step === "string"),
-  };
-}
+import type { MealSuggestion } from "@/lib/ai/types";
 
 export default function Home() {
-  const [apiKey, setApiKey] = useState("");
   const [prompt, setPrompt] = useState("");
   const [dietaryPreference, setDietaryPreference] = useState("");
   const [prepTime, setPrepTime] = useState("");
@@ -78,75 +20,34 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [meal, setMeal] = useState<MealSuggestion | null>(null);
 
-  const canSubmit = useMemo(() => !loading && apiKey.trim().length > 0, [apiKey, loading]);
-
-  const buildUserPrompt = (isSurprise: boolean) => {
-    const goal = isSurprise ? SURPRISE_PROMPT : prompt.trim() || "Give me a practical lunchbox idea.";
-
-    return [
-      goal,
-      dietaryPreference ? `Dietary preference: ${dietaryPreference}` : null,
-      prepTime ? `Available prep time: ${prepTime}` : null,
-      ingredientsOnHand.trim() ? `Ingredients available: ${ingredientsOnHand.trim()}` : null,
-    ]
-      .filter(Boolean)
-      .join("\n");
-  };
+  const canSubmit = useMemo(() => !loading, [loading]);
 
   const requestMeal = async (isSurprise = false) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch("/api/meal", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey.trim()}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
-          max_tokens: 1000,
-          temperature: 0.8,
-          messages: [
-            {
-              role: "system",
-              content: SYSTEM_PROMPT,
-            },
-            {
-              role: "user",
-              content: buildUserPrompt(isSurprise),
-            },
-          ],
+          isSurprise,
+          prompt,
+          dietaryPreference,
+          prepTime,
+          ingredientsOnHand,
         }),
       });
 
-      if (!response.ok) {
-        const details = await response.text();
-        throw new Error(`OpenAI request failed (${response.status}): ${details}`);
-      }
-
       const data = await response.json();
-      const rawText = data?.choices?.[0]?.message?.content;
 
-      if (!rawText || typeof rawText !== "string") {
-        throw new Error("No text content returned by OpenAI.");
+      if (!response.ok) {
+        throw new Error(data?.error || "OpenAI request failed.");
       }
 
-      const cleanedText = rawText
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim();
-
-      const parsed = JSON.parse(cleanedText);
-      const safeMeal = coerceMeal(parsed);
-
-      if (!safeMeal) {
-        throw new Error("Received invalid JSON format. Please try again.");
-      }
-
-      setMeal(safeMeal);
+      setMeal(data.meal as MealSuggestion);
     } catch (err) {
       setMeal(null);
       setError(err instanceof Error ? err.message : "Unexpected error while generating meal.");
@@ -175,17 +76,6 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={onSubmit}>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">OpenAI API key</label>
-                <Input
-                  placeholder="sk-..."
-                  type="password"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  required
-                />
-              </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium">What are you in the mood for?</label>
                 <Input
